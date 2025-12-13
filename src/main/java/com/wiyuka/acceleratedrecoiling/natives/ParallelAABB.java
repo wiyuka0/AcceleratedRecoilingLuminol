@@ -1,6 +1,7 @@
 package com.wiyuka.acceleratedrecoiling.natives;
 
 import net.minecraft.world.entity.Entity;
+import net.minecraft.world.entity.EntitySelector;
 import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.phys.AABB;
 import net.minecraft.world.phys.Vec3;
@@ -74,8 +75,10 @@ public class ParallelAABB {
                 entity = e1;
             } else continue;
 
+            if (EntitySelector.pushableBy(livingEntity).test(entity)) {
+                CollisionMapData.putCollision(TempID.getId(livingEntity), TempID.getId(entity));
+            }
 //            CollisionMapData.putCollision(livingEntity.getId(), entity.getId());
-            CollisionMapData.putCollision(TempID.getId(livingEntity), TempID.getId(entity));
 //            e1.doPush(e2);
 //            e2.doPush(e1);
 

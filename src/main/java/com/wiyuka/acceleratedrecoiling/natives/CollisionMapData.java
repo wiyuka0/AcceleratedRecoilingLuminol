@@ -57,8 +57,6 @@ public class CollisionMapData {
                 }
             }
         }
-
-        // 3. 将全局引用指向新的数组
         collisionMap = newCollisionMap;
     }
 
