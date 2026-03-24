@@ -21,7 +21,8 @@ buildscript {
     id("java")
     id("moe.luminolmc.hyacinthusweight.userdev") version "2.0.8"
 //     id("io.papermc.paperweight.userdev") version "1.7.5"
-     id("com.github.johnrengelman.shadow") version "8.1.1"
+//     id("com.github.johnrengelman.shadow") version "8.1.1"
+     id ("io.github.goooler.shadow") version "8.1.7"
 //    id("org.leavesmc.leavesweight.userdev") version "2.1.0-SNAPSHOT"
 //    id("org.spongepowered.mixin") version "0.8.7"
 //    id("com.github.johnrengelman.shadow") version "8.1.0"

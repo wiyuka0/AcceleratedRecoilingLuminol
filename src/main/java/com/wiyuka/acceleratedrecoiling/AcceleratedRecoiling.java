@@ -1,17 +1,17 @@
 package com.wiyuka.acceleratedrecoiling;
 
+import com.wiyuka.acceleratedrecoiling.api.EntityAccessBridge;
 import com.wiyuka.acceleratedrecoiling.commands.ToggleFoldCommand;
 import com.wiyuka.acceleratedrecoiling.config.FoldConfig;
 import com.wiyuka.acceleratedrecoiling.listeners.ServerStop;
 import com.wiyuka.acceleratedrecoiling.natives.CollisionMapData;
 import com.wiyuka.acceleratedrecoiling.natives.ParallelAABB;
 import com.wiyuka.acceleratedrecoiling.natives.TempID;
-import io.papermc.paper.threadedregions.EntityScheduler;
 import io.papermc.paper.threadedregions.RegionizedWorldData;
 import net.minecraft.world.entity.Entity;
+import net.minecraft.world.entity.EntitySelector;
 import net.minecraft.world.entity.player.Player;
 
-import net.minecraft.world.level.entity.EntityTickList;
 import org.bukkit.plugin.java.JavaPlugin;
 
 import java.lang.reflect.Field;
@@ -19,6 +19,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.function.BiFunction;
 import java.util.function.Consumer;
+import java.util.function.Predicate;
 import java.util.logging.Logger;
 
 public class AcceleratedRecoiling extends JavaPlugin {
@@ -53,19 +54,17 @@ public class AcceleratedRecoiling extends JavaPlugin {
         hookField.setAccessible(true);
         hookMethodField.setAccessible(true);
 
-        Object consumer = new Consumer<Object>() {
-            @Override
-            public void accept(Object entityListIterable) {
-                if (!FoldConfig.enableEntityCollision) {
-                    return;
-                }
+        Object consumer = (Consumer<Object>) entityListIterable -> {
+            if (!FoldConfig.enableEntityCollision) {
+                return;
+            }
 
-                TempID.tickStart();
-                List<Entity> livingEntities = new ArrayList<>();
-                // List<Player> playerEntities = new ArrayList<>(); // 如果你需要这个
+            TempID.tickStart();
+            List<Entity> livingEntities = new ArrayList<>();
+            // List<Player> playerEntities = new ArrayList<>(); // 如果你需要这个
 
-                // 3. 遍历 Mixin 传过来的 entityTickList
-                // 因为 EntityTickList 实现了 Iterable<Entity>，所以可以直接 foreach
+            // 3. 遍历 Mixin 传过来的 entityTickList
+            // 因为 EntityTickList 实现了 Iterable<Entity>，所以可以直接 foreach
 //            for (Entity entity : entityListIterable) {
 //                if (!entity.isRemoved()) {
 //                    if (entity instanceof Player) {
@@ -75,21 +74,20 @@ public class AcceleratedRecoiling extends JavaPlugin {
 //                    }
 //                }
 //            }
-                ((RegionizedWorldData)entityListIterable).forEachTickingEntity(entity -> {
-                    if (!entity.isRemoved()) {
-                        if (entity instanceof Player) {
-                            // playerEntities.add((Player) entity);
-                        } else if (entity instanceof Entity) {
-                            livingEntities.add(entity);
-                        }
+            ((RegionizedWorldData)entityListIterable).forEachTickingEntity(entity -> {
+                if (!entity.isRemoved()) {
+                    if (entity instanceof Player) {
+                        // playerEntities.add((Player) entity);
+                    } else if (entity instanceof Entity) {
+                        livingEntities.add(entity);
                     }
-                    TempID.addEntity(entity);
-                });
+                }
+                TempID.addEntity(entity);
+            });
 
-                // 4. 调用你的并行处理逻辑
-                // 此时 ParallelAABB 类肯定是已加载的，因为我们在插件内部
-                ParallelAABB.handleEntityPush(livingEntities, 1.0E-3);
-            }
+            // 4. 调用你的并行处理逻辑
+            // 此时 ParallelAABB 类肯定是已加载的，因为我们在插件内部
+            ParallelAABB.handleEntityPush(livingEntities, 1.0E-3);
         };
         java.lang.reflect.Method logicMethod = consumer.getClass().getMethod("accept", Object.class);
         logicMethod.setAccessible(true);
@@ -105,21 +103,30 @@ public class AcceleratedRecoiling extends JavaPlugin {
         hookField.setAccessible(true);
         hookMethod.setAccessible(true);
 
-        BiFunction<Object, Object, List<Object>> func = new BiFunction<>() {
-            @Override
-            public List<Object> apply(Object levelObj, Object entityObj) {
-                net.minecraft.world.level.Level level = (net.minecraft.world.level.Level) levelObj;
-                net.minecraft.world.entity.Entity entity = (net.minecraft.world.entity.Entity) entityObj;
-                if (FoldConfig.enableEntityCollision
-                        && !(entity instanceof net.minecraft.world.entity.player.Player)
-                        && !level.isClientSide()) {
-//                    return CollisionMapData.getCollisionList(entity, level).stream().map(obj -> (Object) obj).collect(Collectors.toList());
-                    @SuppressWarnings("unchecked")
-                    List<Object> castedList = (List<Object>) (List<?>) CollisionMapData.getCollisionList(entity, level);
-                    return castedList;
-                }
+        BiFunction<Object, Object, List<Object>> func = (levelObj, entityObj) -> {
+            net.minecraft.world.level.Level level = (net.minecraft.world.level.Level) levelObj;
+            Entity entity = (Entity) entityObj;
+
+            if (!FoldConfig.enableEntityCollision || entity instanceof Player || level.isClientSide()) {
                 return null;
             }
+
+            if (EntityAccessBridge.getDensity(entity) < FoldConfig.densityThreshold) {
+                return null;
+            }
+
+            List<Entity> rawList = CollisionMapData.getCollisionList(entity, level);
+
+            Predicate<? super Entity> pushablePredicate = EntitySelector.pushableBy(entity);
+
+            List<Object> filteredList = new ArrayList<>();
+            for (Entity e : rawList) {
+                if (pushablePredicate.test(e)) {
+                    filteredList.add(e);
+                }
+            }
+
+            return filteredList;
         };
 
         java.lang.reflect.Method logicMethod = func.getClass().getMethod("apply", Object.class, Object.class);
