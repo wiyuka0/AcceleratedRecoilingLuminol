@@ -17,11 +17,14 @@ buildscript {
 
 
 
-plugins {
+ plugins {
     id("java")
-    id("org.leavesmc.leavesweight.userdev") version "2.1.0-SNAPSHOT"
+    id("moe.luminolmc.hyacinthusweight.userdev") version "2.0.8"
+//     id("io.papermc.paperweight.userdev") version "1.7.5"
+     id("com.github.johnrengelman.shadow") version "8.1.1"
+//    id("org.leavesmc.leavesweight.userdev") version "2.1.0-SNAPSHOT"
 //    id("org.spongepowered.mixin") version "0.8.7"
-    id("com.github.johnrengelman.shadow") version "8.1.0"
+//    id("com.github.johnrengelman.shadow") version "8.1.0"
 }
 
 tasks.register<Exec>("compileNativeLib") {
@@ -155,19 +158,34 @@ tasks.withType(JavaCompile::class).configureEach {
 //apply(plugin = "org.spongepowered.mixin")
 
 group = "com.wiyuka"
-version = "0.9.5-alpha-leaves"
+version = "0.9.5-alpha-luminol"
 
 repositories {
     mavenCentral()
-    maven {
-        name = "leavesmc-repo"
-        url = uri("https://repo.leavesmc.org/snapshots/")
-    }
-    maven {
-        name = "leavesmc-repo"
-        url = uri("https://repo.leavesmc.org/releases/")
-    }
+//    maven {
+//        name = "leavesmc-repo"
+//        url = uri("https://repo.leavesmc.org/snapshots/")
+//    }
+//    maven {
+//        name = "leavesmc-repo"
+//        url = uri("https://repo.leavesmc.org/releases/")
+//    }
+//    maven("https://repo.spongepowered.org/repository/maven-public/")
+//    maven {
+//        url = "https://repo.menthamc.org/repository/maven-public/"
+//    }
     maven("https://repo.spongepowered.org/repository/maven-public/")
+    maven {
+        name = "luminol-snapshots"
+        url = uri("https://repo.menthamc.org/snapshots/")
+    }
+    maven {
+        name = "luminol-releases"
+        url = uri("https://repo.menthamc.org/releases/")
+    }
+    maven {
+        url = uri("https://repo.menthamc.org/repository/maven-public/")
+    }
 }
 
 
@@ -177,13 +195,21 @@ dependencies {
     compileOnly(mixinExtras)
     annotationProcessor(mixinExtras)
 //    leavesweight.leavesDevBundle("1.21.8-R0.1-SNAPSHOT")
-    paperweight.devBundle(libs.leavesDevBundle)
-    compileOnly("org.leavesmc.leaves:leaves-api:1.21.8-R0.1-SNAPSHOT")
+//    paperweight.devBundle(libs.luminolDevBundle)
+//    compileOnly("org.leavesmc.leaves:leaves-api:1.21.8-R0.1-SNAPSHOT")
 //    compileOnly(files("I:\\downloads\\Downloads\\testserverleaves\\leaves-1.21.8.jar"))
 //    compileOnly("org.leavesmc.leaves:mixin:1.21.8-R0.1-SNAPSHOT")
+//    paperweight.luminolDevBundle("1.21.8-R0.1-SNAPSHOT")
+//    paperweight.devBundle("me.earthme.luminol:luminol-core:1.21.8-R0.1-SNAPSHOT")
+//    paperweight.devBundle("me.earthme.luminol:luminol-server:1.21.8-R0.1-SNAPSHOT")
+//    paperweight.devBundle("me.earthme.luminol:luminol-api:1.21.8-R0.1-SNAPSHOT")
+//    paperweight.devBundle("me.earthme.luminol:dev-bundle:1.21.8-R0.1-SNAPSHOT")
+//    paperweight.devBundle("me.earthme.luminol")
+    paperweightDevelopmentBundle("me.earthme.luminol", "dev-bundle", "1.21.8-R0.1-SNAPSHOT")
+    //me.earthme.luminol.dev-bundle.1.21.8.R0.1-SNAPSHOT
     implementation("org.spongepowered:mixin:0.8.5")
     annotationProcessor("org.spongepowered:mixin:0.8.5:processor")
-
+    compileOnly("me.earthme.luminol:luminol-api:1.21.8-R0.1-SNAPSHOT")
 }
 
 

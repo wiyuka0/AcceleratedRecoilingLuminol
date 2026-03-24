@@ -6,6 +6,8 @@ import com.wiyuka.acceleratedrecoiling.listeners.ServerStop;
 import com.wiyuka.acceleratedrecoiling.natives.CollisionMapData;
 import com.wiyuka.acceleratedrecoiling.natives.ParallelAABB;
 import com.wiyuka.acceleratedrecoiling.natives.TempID;
+import io.papermc.paper.threadedregions.EntityScheduler;
+import io.papermc.paper.threadedregions.RegionizedWorldData;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.player.Player;
 
@@ -73,7 +75,7 @@ public class AcceleratedRecoiling extends JavaPlugin {
 //                    }
 //                }
 //            }
-                ((EntityTickList)entityListIterable).forEach(entity -> {
+                ((RegionizedWorldData)entityListIterable).forEachTickingEntity(entity -> {
                     if (!entity.isRemoved()) {
                         if (entity instanceof Player) {
                             // playerEntities.add((Player) entity);

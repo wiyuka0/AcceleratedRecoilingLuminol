@@ -1,10 +1,10 @@
 package com.wiyuka.acceleratedrecoiling.mixin;
 
-import com.wiyuka.acceleratedrecoiling.config.FoldConfig;
-import com.wiyuka.acceleratedrecoiling.natives.ParallelAABB;
+import io.papermc.paper.threadedregions.RegionizedWorldData;
+import io.papermc.paper.threadedregions.TickRegions;
 import net.minecraft.server.level.ServerLevel;
-import net.minecraft.world.entity.LivingEntity;
-import net.minecraft.world.entity.player.Player;
+import net.minecraft.world.entity.Entity;
+import net.minecraft.world.level.Level;
 import net.minecraft.world.level.entity.EntityTickList;
 import org.spongepowered.asm.mixin.Final;
 import org.spongepowered.asm.mixin.Mixin;
@@ -14,8 +14,6 @@ import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 
-import java.util.ArrayList;
-import java.util.List;
 import java.util.function.BooleanSupplier;
 import java.util.function.Consumer;
 
@@ -23,9 +21,8 @@ import java.util.function.Consumer;
 @Mixin(value = ServerLevel.class, remap = false)
 public abstract class ServerLevelMixin {
 
-    @Shadow @Final private EntityTickList entityTickList;
-
     @Shadow public abstract boolean canSleepThroughNights();
+
 
     @Unique
     private static java.lang.reflect.Method CALLBACK_METHOD = null;
@@ -36,13 +33,13 @@ public abstract class ServerLevelMixin {
      */
 
     @Inject(
-            method = "tick(Ljava/util/function/BooleanSupplier;)V",
+            method = "tick",
             at = @At("HEAD")
     )
-    private void tick(BooleanSupplier booleanSupplier, CallbackInfo ci) {
+    private void tick(BooleanSupplier hasTimeLeft, TickRegions.TickRegionData region, CallbackInfo ci) {
         if (CALLBACK_OBJECT != null && CALLBACK_METHOD != null) {
             try {
-                ((Consumer) CALLBACK_OBJECT).accept(this.entityTickList);
+                ((Consumer) CALLBACK_OBJECT).accept(((ServerLevel)(Object) this).getCurrentWorldData());
 //                CALLBACK_METHOD.invoke(CALLBACK_OBJECT, this.entityTickList);
             }catch(Exception e) {
                 e.printStackTrace();
