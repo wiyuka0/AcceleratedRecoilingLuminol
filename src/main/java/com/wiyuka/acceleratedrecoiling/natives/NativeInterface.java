@@ -1,69 +1,127 @@
 package com.wiyuka.acceleratedrecoiling.natives;
 
+import java.util.Arrays;
+import java.util.List;
+import java.util.function.Supplier;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
 public class NativeInterface {
 
-    // 引入 JUL Logger
     private static final Logger LOGGER = Logger.getLogger(NativeInterface.class.getName());
+
+    public static boolean isVectorApiAvailable() {
+        try {
+            Class.forName("jdk.incubator.vector.Vector");
+            return true;
+        } catch (Throwable e) {
+            return false;
+        }
+    }
+
+    public enum BackendType {
+        FFM("FFM", () -> loadReflectively("com.wiyuka.acceleratedrecoiling.natives.FFMBackend")),
+        JNI("JNI", JNIBackend::new),
+        JAVA_SIMD("Java SIMD", () -> {
+            if (!isVectorApiAvailable()) throw new UnsupportedOperationException("Vector API not available");
+            return loadReflectively("com.wiyuka.acceleratedrecoiling.natives.JavaSIMDBackend");
+        }),
+        JAVA_VANILLA("Java Vanilla", JavaVanillaBackend::new),
+        JAVA("Pure Java", JavaBackend::new),
+        AUTO("Auto", null);
+
+        private final String displayName;
+        private final Supplier<INativeBackend> loader;
+
+        BackendType(String displayName, Supplier<INativeBackend> loader) {
+            this.displayName = displayName;
+            this.loader = loader;
+        }
+
+        public String getDisplayName() { return displayName; }
+
+        public INativeBackend tryLoad() {
+            if (this == AUTO) return null;
+            try {
+                LOGGER.info("Attempting to load " + this.displayName + " backend...");
+                INativeBackend instance = loader.get();
+                instance.initialize();
+                return instance;
+            } catch (Throwable t) {
+                LOGGER.log(Level.WARNING,
+                        this.displayName + " backend failed to load. Reason: " + t.getMessage(),
+                        t);
+                return null;
+            }
+        }
+    }
 
     private static INativeBackend backend;
     private static boolean isInitialized = false;
 
+    private static final List<BackendType> AUTO_FALLBACK_CHAIN = Arrays.asList(
+            BackendType.FFM,
+            BackendType.JNI,
+            BackendType.JAVA_SIMD,
+            BackendType.JAVA
+    );
+
     public static void initialize() {
+        if (AVX2.hasAVX2()) {
+            initialize(BackendType.AUTO);
+        } else if (isVectorApiAvailable()) {
+            initialize(BackendType.JAVA_SIMD);
+        } else {
+            initialize(BackendType.JAVA);
+        }
+    }
+
+    public static void initialize(BackendType preferredType) {
         if (isInitialized) return;
-        INativeBackend backend1 = getBackend();
-//        INativeBackend backend1 = new JavaBackend();
-//        backend1.initialize();
-        LOGGER.info("Selected backend: " + backend1.getName());
-        backend = backend1;
+
+        LOGGER.info("Initializing NativeInterface with preferred backend: " + preferredType);
+
+        backend = getBackend(preferredType);
+
+        if (backend != null) {
+            LOGGER.info("Successfully selected and initialized backend: " + backend.getName());
+            isInitialized = true;
+        } else {
+            throw new IllegalStateException("Failed to initialize ANY backend!");
+        }
     }
 
-    public static String getBackendName() {
-        if(backend == null) return "None";
-        return backend.getName();
+    private static INativeBackend getBackend(BackendType preferredType) {
+        INativeBackend instance = null;
+
+        if (preferredType != BackendType.AUTO) {
+            instance = preferredType.tryLoad();
+            if (instance != null) return instance;
+
+            LOGGER.warning("Preferred " + preferredType.getDisplayName() +
+                    " backend failed. Falling back to AUTO chain...");
+        }
+
+        LOGGER.info("Detected Java Version: " + Runtime.version().feature());
+
+        for (BackendType type : AUTO_FALLBACK_CHAIN) {
+            if (type == preferredType) continue;
+
+            if (type == BackendType.FFM && Runtime.version().feature() < 21) continue;
+
+            instance = type.tryLoad();
+            if (instance != null) return instance;
+        }
+
+        return null;
     }
 
-    private static INativeBackend getBackend() {
-        int javaVersion = Runtime.version().feature();
-        // JUL 使用 {0} 作为第一个参数的占位符
-        LOGGER.log(Level.INFO, "Detected Java Version: {0}", javaVersion);
-
-        // 1. 尝试 FFM
-        if (javaVersion >= 21) {
-            try {
-                LOGGER.info("Attempting to load FFM backend...");
-                Class<?> ffmClass = Class.forName("com.wiyuka.acceleratedrecoiling.natives.FFMBackend");
-                INativeBackend ffmInstance = (INativeBackend) ffmClass.getDeclaredConstructor().newInstance();
-
-                ffmInstance.initialize();
-                return ffmInstance;
-            } catch (Throwable t) {
-                LOGGER.log(Level.WARNING, "FFM backend failed to load. Reason: {0}", t.getMessage());
-            }
-        }
-
+    private static INativeBackend loadReflectively(String className) {
         try {
-            LOGGER.info("Attempting to load JNI backend...");
-            INativeBackend jniInstance = new JNIBackend();
-
-            jniInstance.initialize();
-            return jniInstance;
-        } catch (Throwable t) {
-            LOGGER.log(Level.WARNING, "JNI backend failed to load. Reason: {0}", t.getMessage());
-        }
-
-        try {
-            LOGGER.info("Falling back to Pure Java backend...");
-            INativeBackend javaInstance = new JavaBackend();
-
-            javaInstance.initialize();
-            return javaInstance;
-        } catch (Throwable t) {
-            // JUL 对应的 error 级别是 SEVERE
-            LOGGER.log(Level.SEVERE, "CRITICAL: All backends failed to load!", t);
-            throw new IllegalStateException("Failed to initialize any AcceleratedRecoiling backend", t);
+            Class<?> clazz = Class.forName(className);
+            return (INativeBackend) clazz.getDeclaredConstructor().newInstance();
+        } catch (Exception e) {
+            throw new RuntimeException("Reflection load failed for " + className, e);
         }
     }
 

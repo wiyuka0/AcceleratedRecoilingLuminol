@@ -86,6 +86,8 @@ tasks.named<ProcessResources>("processResources") {
 
 tasks.withType(JavaCompile::class).configureEach {
     options.compilerArgs.add("--enable-preview")
+    options.compilerArgs.add ("--add-modules")
+    options.compilerArgs.add("jdk.incubator.vector")
 }
 
 
@@ -159,7 +161,7 @@ tasks.withType(JavaCompile::class).configureEach {
 //apply(plugin = "org.spongepowered.mixin")
 
 group = "com.wiyuka"
-version = "0.9.5-alpha-luminol"
+version = "21.8.0-alpha-luminol"
 
 repositories {
     mavenCentral()

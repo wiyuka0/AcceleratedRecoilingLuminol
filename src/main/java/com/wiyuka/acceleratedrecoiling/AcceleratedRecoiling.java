@@ -5,6 +5,7 @@ import com.wiyuka.acceleratedrecoiling.commands.ToggleFoldCommand;
 import com.wiyuka.acceleratedrecoiling.config.FoldConfig;
 import com.wiyuka.acceleratedrecoiling.listeners.ServerStop;
 import com.wiyuka.acceleratedrecoiling.natives.CollisionMapData;
+import com.wiyuka.acceleratedrecoiling.natives.JavaVanillaBackend;
 import com.wiyuka.acceleratedrecoiling.natives.ParallelAABB;
 import com.wiyuka.acceleratedrecoiling.natives.TempID;
 import io.papermc.paper.threadedregions.RegionizedWorldData;
@@ -58,6 +59,7 @@ public class AcceleratedRecoiling extends JavaPlugin {
             if (!FoldConfig.enableEntityCollision) {
                 return;
             }
+            if(JavaVanillaBackend.isSelected()) JavaVanillaBackend.tick((RegionizedWorldData)entityListIterable);
 
             TempID.tickStart();
             List<Entity> livingEntities = new ArrayList<>();
@@ -107,13 +109,12 @@ public class AcceleratedRecoiling extends JavaPlugin {
             net.minecraft.world.level.Level level = (net.minecraft.world.level.Level) levelObj;
             Entity entity = (Entity) entityObj;
 
-            if (!FoldConfig.enableEntityCollision || entity instanceof Player || level.isClientSide()) {
-                return null;
-            }
 
-            if (EntityAccessBridge.getDensity(entity) < FoldConfig.densityThreshold) {
-                return null;
-            }
+            if (!FoldConfig.enableEntityCollision || entity instanceof Player || level.isClientSide()) return null;
+
+            if(JavaVanillaBackend.isSelected()) return (List<Object>)(Object) JavaVanillaBackend.getPushableEntities(entity, entity.getBoundingBox());
+
+            if (EntityAccessBridge.getDensity(entity) < FoldConfig.densityThreshold) return null;
 
             List<Entity> rawList = CollisionMapData.getCollisionList(entity, level);
 
